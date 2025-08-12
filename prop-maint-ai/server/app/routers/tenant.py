@@ -8,6 +8,7 @@ from .. import schemas
 from ..database import get_db
 from ..models import MaintenanceRequest, Feedback, Property, User, MaintenanceStatus
 from ..security import require_role
+from ..services.storage import StorageBackend
 
 router = APIRouter(prefix="/tenant", tags=["tenant"])
 
@@ -28,14 +29,10 @@ async def create_request(
 
     photo_path = None
     if photo is not None:
-        uploads_dir = "uploads"
-        import os
-        os.makedirs(uploads_dir, exist_ok=True)
-        filename = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{photo.filename}"
-        file_path = os.path.join(uploads_dir, filename)
-        with open(file_path, "wb") as f:
-            f.write(await photo.read())
-        photo_path = file_path
+        storage = StorageBackend()
+        file_bytes = await photo.read()
+        saved_path, _ = storage.save_bytes(file_bytes, photo.filename)
+        photo_path = saved_path
 
     req = MaintenanceRequest(
         tenant_id=user.id,

@@ -6,7 +6,9 @@ import os
 from .config import settings
 from .database import Base, engine
 from .routers import auth, tenant, admin, predictions, files
+from .routers import health
 from .services.scheduler_jobs import start_scheduler, shutdown_scheduler
+from .middleware import request_id_middleware, logging_middleware
 
 
 def create_app() -> FastAPI:
@@ -20,11 +22,15 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    app.middleware("http")(request_id_middleware)
+    app.middleware("http")(logging_middleware)
+
     app.include_router(auth.router)
     app.include_router(tenant.router)
     app.include_router(admin.router)
     app.include_router(predictions.router)
     app.include_router(files.router)
+    app.include_router(health.router)
 
     os.makedirs("uploads", exist_ok=True)
     app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

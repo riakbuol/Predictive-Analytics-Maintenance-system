@@ -5,11 +5,12 @@ A full-stack system for tenant maintenance reporting, predictive maintenance, ta
 ## Features
 - Tenant maintenance reporting with photos
 - Prediction engine (RandomForest baseline) with training on uploaded CSV
-- Task assignment and weekly scheduling
+- Task assignment and weekly scheduling (APScheduler jobs)
 - Admin dashboard APIs: metrics, active/pending/predicted tasks
 - Tenant feedback collection
 - CSV import/export of maintenance data
 - Role-based access control (tenant, staff, admin)
+- Static HTML/CSS UI served at `/app`
 
 ## Quickstart (Backend)
 
@@ -22,22 +23,47 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --app-dir app --reload
 ```
 
 Open API docs at: http://localhost:8000/docs
+UI: http://localhost:8000/app
 
 ### Database (MySQL)
 - Default `DATABASE_URL` is `mysql+pymysql://root:password@localhost:3306/prop_maint`
 - Override via env: `export DATABASE_URL="mysql+pymysql://USER:PASS@HOST:3306/DBNAME"`
 - For local dev without MySQL, set SQLite: `export DATABASE_URL="sqlite:///./app.db"`
 
-### Environment Variables
-- `DATABASE_URL` (default: MySQL DSN)
-- `JWT_SECRET` (default: random dev secret)
-- `JWT_EXPIRE_MINUTES` (default: 60)
-- `ALLOWED_ORIGINS` (comma-separated; default: `*`)
-- `ALLOW_OPEN_ADMIN_SIGNUP` (default: false)
+### Storage
+- `STORAGE_BACKEND`: `local` (default) or `s3`
+- Local: `LOCAL_UPLOAD_DIR` (default `uploads/`)
+- S3: `AWS_REGION`, `S3_BUCKET`, `S3_PREFIX` (optional), `S3_ENDPOINT_URL` (optional for MinIO)
 
-### Initial Admin
-- For dev: `export ALLOW_OPEN_ADMIN_SIGNUP=true` then call `/auth/register` with role `admin`
-- Or register tenant then create staff via `/admin/users/staff`
+### Environment Variables
+- `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRE_MINUTES`, `ALLOWED_ORIGINS`, `ALLOW_OPEN_ADMIN_SIGNUP`
+
+### Scheduler
+- Nightly predictions stub (02:00 UTC), weekly assignment (Mon 03:00 UTC)
+
+### Alembic Migrations
+```bash
+cd server
+alembic revision --autogenerate -m "init"
+alembic upgrade head
+```
+
+### Docker
+- Compose (MySQL + API):
+```bash
+docker compose up -d
+```
+- Dockerfile build:
+```bash
+docker build -t prop-maint-ai .
+docker run -p 8000:8000 --env DATABASE_URL="mysql+pymysql://root:devpass@host.docker.internal:3306/prop_maint" prop-maint-ai
+```
+
+### Tests
+```bash
+cd server
+pytest -q
+```
 
 ## CSV Schemas (for Training/Import)
 - Training CSV expected columns (example minimal): `property_id,property_age,last_service_days,num_past_issues,season,humidity,temperature,category`
