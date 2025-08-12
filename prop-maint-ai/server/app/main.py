@@ -6,6 +6,7 @@ import os
 from .config import settings
 from .database import Base, engine
 from .routers import auth, tenant, admin, predictions, files
+from .services.scheduler_jobs import start_scheduler, shutdown_scheduler
 
 
 def create_app() -> FastAPI:
@@ -35,6 +36,11 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     def on_startup() -> None:
         Base.metadata.create_all(bind=engine)
+        start_scheduler()
+
+    @app.on_event("shutdown")
+    def on_shutdown() -> None:
+        shutdown_scheduler()
 
     return app
 

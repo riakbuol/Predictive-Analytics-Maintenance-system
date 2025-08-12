@@ -1,0 +1,7 @@
+Alembic migrations
+
+Usage:
+- Set DATABASE_URL env (e.g., mysql+pymysql://user:pass@host:3306/prop_maint)
+- Initialize: already configured under server/alembic/
+- Create migration: alembic revision --autogenerate -m "init"
+- Apply: alembic upgrade head
