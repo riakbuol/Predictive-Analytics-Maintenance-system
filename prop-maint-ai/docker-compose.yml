@@ -1,0 +1,30 @@
+version: '3.9'
+services:
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: devpass
+      MYSQL_DATABASE: prop_maint
+    ports:
+      - "3306:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    command: ["--default-authentication-plugin=mysql_native_password"]
+
+  api:
+    image: python:3.13-slim
+    working_dir: /app
+    command: bash -lc "pip install --no-cache-dir -r server/requirements.txt && uvicorn app.main:app --app-dir server/app --host 0.0.0.0 --port 8000"
+    volumes:
+      - ./:/app
+    environment:
+      DATABASE_URL: mysql+pymysql://root:devpass@db:3306/prop_maint
+      ALLOW_OPEN_ADMIN_SIGNUP: "true"
+      ALLOWED_ORIGINS: "*"
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+
+volumes:
+  dbdata:
