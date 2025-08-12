@@ -7,6 +7,8 @@ type Property = { id: number, name: string, address?: string|null, year_built?: 
 
 type Prediction = { property_id: number, predicted_category: string, severity: string, priority: number, predicted_for_date: string }
 
+type Task = { id: number, category: string, urgency: string, status: string, priority?: number }
+
 export default function AdminDashboard() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [properties, setProperties] = useState<Property[]>([])
@@ -14,6 +16,7 @@ export default function AdminDashboard() {
   const [propYear, setPropYear] = useState<number | ''>('')
   const [preds, setPreds] = useState<Prediction[]>([])
   const [message, setMessage] = useState('')
+  const [tasks, setTasks] = useState<Task[]>([])
 
   async function refresh() {
     try {
@@ -21,6 +24,8 @@ export default function AdminDashboard() {
       setMetrics(m.data)
       const p = await api.get('/admin/properties')
       setProperties(p.data)
+      const t = await api.get('/admin/tasks/all')
+      setTasks(t.data)
     } catch {}
   }
 
@@ -47,11 +52,17 @@ export default function AdminDashboard() {
   async function applyPriorities() {
     await api.post('/predictions/apply-priorities')
     setMessage('Priorities applied to pending tasks')
+    refresh()
   }
 
   async function assignWeekly() {
     await api.post('/admin/assign')
     setMessage('Weekly schedule assigned')
+  }
+
+  async function updateTask(t: Task, updates: Partial<Task>) {
+    await api.patch(`/admin/tasks/${t.id}`, updates)
+    refresh()
   }
 
   return (
@@ -83,6 +94,24 @@ export default function AdminDashboard() {
         <ul>
           {properties.map(p => <li key={p.id}>{p.name} {p.year_built ? `(${p.year_built})` : ''}</li>)}
         </ul>
+      </section>
+
+      <section className="card">
+        <h3>Tasks</h3>
+        <div className="list">
+          {tasks.map(t => (
+            <div className="item" key={t.id}>
+              <div><strong>#{t.id}</strong> {t.category} — {t.urgency} — {t.status} — priority {t.priority ?? '-'}</div>
+              <div className="row">
+                <button onClick={() => updateTask(t, { status: 'active' })}>Mark Active</button>
+                <button onClick={() => updateTask(t, { status: 'resolved' })}>Mark Resolved</button>
+                <button onClick={() => updateTask(t, { priority: 1 })}>Priority 1</button>
+                <button onClick={() => updateTask(t, { priority: 2 })}>Priority 2</button>
+                <button onClick={() => updateTask(t, { priority: 3 })}>Priority 3</button>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="card">

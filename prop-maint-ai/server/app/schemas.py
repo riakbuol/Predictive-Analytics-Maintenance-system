@@ -63,6 +63,14 @@ class MaintenanceRequestOut(BaseModel):
         from_attributes = True
 
 
+class MaintenanceRequestUpdate(BaseModel):
+    status: Optional[str] = None
+    priority: Optional[int] = Field(default=None, ge=1, le=3)
+    category: Optional[str] = None
+    urgency: Optional[str] = None
+    description: Optional[str] = None
+
+
 class FeedbackCreate(BaseModel):
     request_id: int
     rating: int = Field(ge=1, le=5)

@@ -28,6 +28,32 @@ def list_tasks(status: str = "pending", db: Session = Depends(get_db), _: User =
     return q.order_by(MaintenanceRequest.created_at.desc()).all()
 
 
+@router.get("/tasks/all", response_model=List[schemas.MaintenanceRequestOut])
+def list_all_tasks(db: Session = Depends(get_db), _: User = Depends(require_role("admin"))):
+    return db.query(MaintenanceRequest).order_by(MaintenanceRequest.created_at.desc()).all()
+
+
+@router.patch("/tasks/{request_id}", response_model=schemas.MaintenanceRequestOut)
+def update_task(request_id: int, payload: schemas.MaintenanceRequestUpdate, db: Session = Depends(get_db), _: User = Depends(require_role("admin"))):
+    req = db.query(MaintenanceRequest).filter(MaintenanceRequest.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Not found")
+    if payload.status is not None:
+        req.status = payload.status
+    if payload.priority is not None:
+        req.priority = payload.priority
+    if payload.category is not None:
+        req.category = payload.category
+    if payload.urgency is not None:
+        req.urgency = payload.urgency
+    if payload.description is not None:
+        req.description = payload.description
+    req.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(req)
+    return req
+
+
 @router.post("/assign", response_model=List[schemas.AssignmentOut])
 def assign_tasks(db: Session = Depends(get_db), admin: User = Depends(require_role("admin"))):
     staff = db.query(User).filter(User.role == UserRole.STAFF, User.is_active == True).all()
