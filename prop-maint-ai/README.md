@@ -50,6 +50,7 @@ prop-maint-ai/
     app/
       routers/
       services/
+      static_frontend/
       main.py
       models.py
       schemas.py
@@ -57,10 +58,8 @@ prop-maint-ai/
       security.py
       config.py
     requirements.txt
-  web/   # React frontend (to be added)
 ```
 
-## Frontend (React + Vite)
-- Will live in `web/` and consume backend APIs
-- Dev server default: http://localhost:5173
-- Ensure backend CORS allows this origin via `ALLOWED_ORIGINS`
+## Frontend (Static HTML/CSS)
+- Served at `/app`
+- Uses minimal JavaScript to call the API
