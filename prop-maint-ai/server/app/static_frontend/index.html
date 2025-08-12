@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Property Maintenance</title>
+  <link rel="stylesheet" href="/app/styles.css">
+</head>
+<body>
+  <div class="nav">
+    <a href="#/login">Login</a>
+    <a href="#/tenant">Tenant</a>
+    <a href="#/admin">Admin</a>
+  </div>
+  <div class="container">
+    <div id="view-login" class="card" style="display:none">
+      <h1>Login</h1>
+      <label>Email <input id="login-email" value="admin@example.com"></label>
+      <label>Password <input id="login-password" type="password" value="Admin123!"></label>
+      <div class="row">
+        <button id="btn-login">Login</button>
+        <button id="btn-register-admin">Quick Register Admin</button>
+        <button id="btn-register-tenant">Quick Register Tenant</button>
+      </div>
+      <div id="login-message" class="alert" style="display:none"></div>
+    </div>
+
+    <div id="view-tenant" style="display:none">
+      <h1>Tenant</h1>
+      <section class="card">
+        <h3>Submit Request</h3>
+        <label>Property
+          <select id="tenant-property"></select>
+        </label>
+        <label>Category <input id="tenant-category" value="plumbing"></label>
+        <label>Urgency
+          <select id="tenant-urgency">
+            <option>low</option>
+            <option selected>medium</option>
+            <option>high</option>
+          </select>
+        </label>
+        <label>Description <textarea id="tenant-desc"></textarea></label>
+        <label>Photo <input id="tenant-photo" type="file"></label>
+        <button id="btn-tenant-submit">Submit</button>
+        <div id="tenant-message" class="alert" style="display:none"></div>
+      </section>
+      <section class="card">
+        <h3>My Requests</h3>
+        <div id="tenant-requests" class="list"></div>
+      </section>
+    </div>
+
+    <div id="view-admin" style="display:none">
+      <h1>Admin</h1>
+      <section class="card">
+        <h3>Metrics</h3>
+        <div id="admin-metrics"></div>
+        <div class="row">
+          <button id="btn-refresh">Refresh</button>
+          <button id="btn-suggest">Generate Predictions</button>
+          <button id="btn-apply-priorities">Apply Priorities</button>
+          <button id="btn-assign">Assign Weekly</button>
+        </div>
+        <div id="admin-message" class="alert" style="display:none"></div>
+      </section>
+      <section class="card">
+        <h3>Properties</h3>
+        <div class="row">
+          <input id="prop-name" placeholder="Name" value="Block A">
+          <input id="prop-year" placeholder="Year Built">
+          <button id="btn-create-prop">Create</button>
+        </div>
+        <ul id="prop-list"></ul>
+      </section>
+      <section class="card">
+        <h3>Tasks</h3>
+        <div id="task-list" class="list"></div>
+      </section>
+      <section class="card">
+        <h3>Latest Predictions</h3>
+        <div id="pred-list" class="list"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = `${location.protocol}//${location.hostname}:8000`
+    let token = localStorage.getItem('token') || ''
+
+    function setMessage(id, text) {
+      const el = document.getElementById(id)
+      el.textContent = text
+      el.style.display = text ? 'block' : 'none'
+    }
+    async function api(path, options={}) {
+      const headers = options.headers || {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      return fetch(`${API_BASE}${path}`, { ...options, headers })
+    }
+
+    // Login view
+    document.getElementById('btn-login').onclick = async () => {
+      const email = document.getElementById('login-email').value
+      const password = document.getElementById('login-password').value
+      const form = new URLSearchParams(); form.set('username', email); form.set('password', password)
+      const res = await api('/auth/login', { method: 'POST', body: form, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
+      if (!res.ok) return setMessage('login-message', 'Login failed')
+      const data = await res.json(); token = data.access_token; localStorage.setItem('token', token)
+      setMessage('login-message', 'Logged in'); location.hash = '#/admin'
+    }
+    document.getElementById('btn-register-admin').onclick = async () => {
+      const email = document.getElementById('login-email').value
+      const password = document.getElementById('login-password').value
+      const res = await api('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, role: 'admin' }), headers: { 'Content-Type': 'application/json' } })
+      setMessage('login-message', res.ok ? 'Admin registered' : 'Register failed')
+    }
+    document.getElementById('btn-register-tenant').onclick = async () => {
+      const email = document.getElementById('login-email').value
+      const password = document.getElementById('login-password').value
+      const res = await api('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, role: 'tenant' }), headers: { 'Content-Type': 'application/json' } })
+      setMessage('login-message', res.ok ? 'Tenant registered' : 'Register failed')
+    }
+
+    // Tenant view
+    async function loadTenant() {
+      const propSel = document.getElementById('tenant-property')
+      propSel.innerHTML = ''
+      const props = await api('/tenant/properties'); if (!props.ok) return
+      const propData = await props.json()
+      for (const p of propData) {
+        const opt = document.createElement('option'); opt.value = p.id; opt.textContent = p.name; propSel.appendChild(opt)
+      }
+      const reqs = await api('/tenant/requests'); const reqData = await reqs.json()
+      const list = document.getElementById('tenant-requests'); list.innerHTML = ''
+      for (const r of reqData) {
+        const div = document.createElement('div'); div.className = 'item';
+        div.textContent = `#${r.id} ${r.category} (${r.urgency}) — ${r.status} | priority ${r.priority ?? '-'}`
+        list.appendChild(div)
+      }
+    }
+    document.getElementById('btn-tenant-submit').onclick = async () => {
+      const form = new FormData()
+      form.set('property_id', document.getElementById('tenant-property').value)
+      form.set('category', document.getElementById('tenant-category').value)
+      form.set('urgency', document.getElementById('tenant-urgency').value)
+      form.set('description', document.getElementById('tenant-desc').value)
+      const file = document.getElementById('tenant-photo').files[0]
+      if (file) form.set('photo', file)
+      const res = await api('/tenant/requests', { method: 'POST', body: form })
+      setMessage('tenant-message', res.ok ? 'Submitted' : 'Failed to submit')
+      loadTenant()
+    }
+
+    // Admin view
+    async function loadAdmin() {
+      // metrics
+      const m = await api('/admin/metrics'); if (m.ok) {
+        const d = await m.json(); document.getElementById('admin-metrics').textContent = `Active ${d.active_count} | Pending ${d.pending_count} | Predicted ${d.predicted_count}`
+      }
+      // properties
+      const p = await api('/admin/properties'); if (p.ok) {
+        const d = await p.json(); const ul = document.getElementById('prop-list'); ul.innerHTML = ''
+        for (const x of d) { const li = document.createElement('li'); li.textContent = `${x.name} ${x.year_built ? '('+x.year_built+')' : ''}`; ul.appendChild(li) }
+      }
+      // tasks
+      const t = await api('/admin/tasks/all'); if (t.ok) {
+        const d = await t.json(); const list = document.getElementById('task-list'); list.innerHTML = ''
+        for (const r of d) {
+          const div = document.createElement('div'); div.className = 'item';
+          const row = document.createElement('div'); row.className = 'row'
+          const title = document.createElement('div'); title.innerHTML = `<strong>#${r.id}</strong> ${r.category} — ${r.urgency} — ${r.status} — priority ${r.priority ?? '-'}`
+          const btnA = document.createElement('button'); btnA.textContent = 'Mark Active'; btnA.onclick = async () => { await api(`/admin/tasks/${r.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'active' }), headers: { 'Content-Type': 'application/json' } }); loadAdmin() }
+          const btnR = document.createElement('button'); btnR.textContent = 'Mark Resolved'; btnR.onclick = async () => { await api(`/admin/tasks/${r.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'resolved' }), headers: { 'Content-Type': 'application/json' } }); loadAdmin() }
+          const btnP1 = document.createElement('button'); btnP1.textContent = 'Priority 1'; btnP1.onclick = async () => { await api(`/admin/tasks/${r.id}`, { method: 'PATCH', body: JSON.stringify({ priority: 1 }), headers: { 'Content-Type': 'application/json' } }); loadAdmin() }
+          const btnP2 = document.createElement('button'); btnP2.textContent = 'Priority 2'; btnP2.onclick = async () => { await api(`/admin/tasks/${r.id}`, { method: 'PATCH', body: JSON.stringify({ priority: 2 }), headers: { 'Content-Type': 'application/json' } }); loadAdmin() }
+          const btnP3 = document.createElement('button'); btnP3.textContent = 'Priority 3'; btnP3.onclick = async () => { await api(`/admin/tasks/${r.id}`, { method: 'PATCH', body: JSON.stringify({ priority: 3 }), headers: { 'Content-Type': 'application/json' } }); loadAdmin() }
+          row.append(btnA, btnR, btnP1, btnP2, btnP3)
+          div.append(title, row); list.appendChild(div)
+        }
+      }
+      // predictions
+      const predList = document.getElementById('pred-list'); predList.innerHTML = ''
+      const preds = await api('/predictions/suggest', { method: 'POST' }); if (preds.ok) {
+        const d = await preds.json(); for (const x of d) {
+          const div = document.createElement('div'); div.className = 'item'; div.textContent = `Property ${x.property_id}: ${x.predicted_category} — ${x.severity} (priority ${x.priority})`; predList.appendChild(div)
+        }
+      }
+    }
+    document.getElementById('btn-refresh').onclick = loadAdmin
+    document.getElementById('btn-suggest').onclick = async () => { await api('/predictions/suggest', { method: 'POST' }); loadAdmin(); setMessage('admin-message', 'Predictions generated') }
+    document.getElementById('btn-apply-priorities').onclick = async () => { await api('/predictions/apply-priorities', { method: 'POST' }); loadAdmin(); setMessage('admin-message', 'Priorities applied') }
+    document.getElementById('btn-assign').onclick = async () => { await api('/admin/assign', { method: 'POST' }); setMessage('admin-message', 'Assigned') }
+    document.getElementById('btn-create-prop').onclick = async () => {
+      const name = document.getElementById('prop-name').value
+      const year = document.getElementById('prop-year').value
+      await api('/admin/properties', { method: 'POST', body: JSON.stringify({ name, year_built: year ? Number(year) : null }), headers: { 'Content-Type': 'application/json' } })
+      loadAdmin(); setMessage('admin-message', 'Property created')
+    }
+
+    function route() {
+      document.getElementById('view-login').style.display = 'none'
+      document.getElementById('view-tenant').style.display = 'none'
+      document.getElementById('view-admin').style.display = 'none'
+      const r = location.hash
+      if (r === '#/tenant') { document.getElementById('view-tenant').style.display = 'block'; loadTenant() }
+      else if (r === '#/admin') { document.getElementById('view-admin').style.display = 'block'; loadAdmin() }
+      else { document.getElementById('view-login').style.display = 'block' }
+    }
+    window.addEventListener('hashchange', route)
+    route()
+  </script>
+</body>
+</html>

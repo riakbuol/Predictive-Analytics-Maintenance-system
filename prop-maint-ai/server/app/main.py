@@ -28,6 +28,10 @@ def create_app() -> FastAPI:
     os.makedirs("uploads", exist_ok=True)
     app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
+    static_dir = os.path.join(os.path.dirname(__file__), "static_frontend")
+    if os.path.isdir(static_dir):
+        app.mount("/app", StaticFiles(directory=static_dir, html=True), name="app")
+
     @app.on_event("startup")
     def on_startup() -> None:
         Base.metadata.create_all(bind=engine)
