@@ -70,3 +70,8 @@ def submit_feedback(payload: schemas.FeedbackCreate, db: Session = Depends(get_d
     db.commit()
     db.refresh(fb)
     return fb
+
+
+@router.get("/properties", response_model=List[schemas.PropertyOut])
+def list_properties(db: Session = Depends(get_db), user: User = Depends(require_role("tenant"))):
+    return db.query(Property).all()

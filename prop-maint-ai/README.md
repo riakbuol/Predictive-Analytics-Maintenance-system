@@ -17,23 +17,27 @@ Requirements: Python 3.10+
 
 ```bash
 cd server
-python -m venv .venv
-source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --app-dir app --reload
 ```
 
 Open API docs at: http://localhost:8000/docs
 
+### Database (MySQL)
+- Default `DATABASE_URL` is `mysql+pymysql://root:password@localhost:3306/prop_maint`
+- Override via env: `export DATABASE_URL="mysql+pymysql://USER:PASS@HOST:3306/DBNAME"`
+- For local dev without MySQL, set SQLite: `export DATABASE_URL="sqlite:///./app.db"`
+
 ### Environment Variables
-- `DATABASE_URL` (default: `sqlite:///./app.db`)
+- `DATABASE_URL` (default: MySQL DSN)
 - `JWT_SECRET` (default: random dev secret)
 - `JWT_EXPIRE_MINUTES` (default: 60)
 - `ALLOWED_ORIGINS` (comma-separated; default: `*`)
+- `ALLOW_OPEN_ADMIN_SIGNUP` (default: false)
 
 ### Initial Admin
-- Register a tenant at `/auth/register`
-- To create an admin or staff, use the `/admin/users` endpoints after logging in as admin, or set `ALLOW_OPEN_ADMIN_SIGNUP=true` for development mode and call `/auth/register` with role `admin`.
+- For dev: `export ALLOW_OPEN_ADMIN_SIGNUP=true` then call `/auth/register` with role `admin`
+- Or register tenant then create staff via `/admin/users/staff`
 
 ## CSV Schemas (for Training/Import)
 - Training CSV expected columns (example minimal): `property_id,property_age,last_service_days,num_past_issues,season,humidity,temperature,category`
@@ -53,9 +57,10 @@ prop-maint-ai/
       security.py
       config.py
     requirements.txt
+  web/   # React frontend (to be added)
 ```
 
-## Next Steps
-- Add React frontend (`web/`) consuming these APIs
-- Add background workers for periodic predictions
-- Swap SQLite for Postgres in production
+## Frontend (React + Vite)
+- Will live in `web/` and consume backend APIs
+- Dev server default: http://localhost:5173
+- Ensure backend CORS allows this origin via `ALLOWED_ORIGINS`
